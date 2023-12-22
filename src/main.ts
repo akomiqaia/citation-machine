@@ -3,6 +3,9 @@ import path from "path";
 
 import { initialiseEmbedder, findSimilar } from "./model/model";
 import { pdfContentToVector } from "./utils/pdfhelpers";
+import { updateElectronApp } from 'update-electron-app';
+
+updateElectronApp();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require("electron-squirrel-startup")) {

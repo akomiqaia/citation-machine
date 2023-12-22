@@ -31,6 +31,18 @@ const config: ForgeConfig = {
       ],
     }),
   ],
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'akomiqaia',
+          name: 'citation-machine'
+        },
+        prerelease: true
+      }
+    }
+  ]
 };
 
 export default config;
