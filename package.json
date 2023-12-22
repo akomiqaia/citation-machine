@@ -25,6 +25,7 @@
     "@electron-forge/maker-zip": "^7.2.0",
     "@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
     "@electron-forge/plugin-vite": "^7.2.0",
+    "@electron-forge/publisher-github": "7.2.0",
     "@melt-ui/pp": "^0.1.4",
     "@melt-ui/svelte": "^0.64.3",
     "@sveltejs/vite-plugin-svelte": "^3.0.1",
