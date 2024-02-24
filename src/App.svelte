@@ -14,7 +14,7 @@
     <Upload />
   </div>
 
-  <input type="text" placeholder="Type your query" bind:value={query} />
+  <textarea type="text" placeholder="Type your query" bind:value={query} />
   <button on:click={handleQuery}>Find</button>
 </div>
 {#if response}

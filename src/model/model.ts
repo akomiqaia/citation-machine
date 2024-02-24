@@ -5,7 +5,6 @@ import winkNLP from "wink-nlp";
 import winkNLPModel from "wink-eng-lite-web-model";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-
 const nlp = winkNLP(winkNLPModel);
 const task = "feature-extraction";
 const model = "Xenova/all-MiniLM-L6-v2";
@@ -25,7 +24,8 @@ export async function initialiseEmbedder(mainwindow: BrowserWindow) {
   const { pipeline } = await import("@xenova/transformers");
   embedder = await pipeline(task, model, {
     progress_callback: (data: EmbeddingProgressData) => {
-      mainwindow.webContents.send("progress", data);
+      // model loading progress
+      // mainwindow.webContents.send("progress", data);
     },
   });
 }
@@ -34,12 +34,18 @@ export async function tokeniseWholeText(text: string) {
   const doc = nlp.readDoc(text);
   const sentences = await doc.sentences().out();
 
-  const tokenisedSentences = await embedder(sentences, {
-    pooling: "mean",
-    normalize: true,
-  });
 
-  return { sentences, tokens: tokenisedSentences.tolist() };
+  const tokenisedSentences = await Promise.all(
+    sentences.map(async (sentence) => {
+      const tokens = await embedder(sentence, {
+        pooling: "mean",
+        normalize: true,
+      });
+      return tokens.tolist();
+    })
+  );
+
+  return { sentences, tokens: tokenisedSentences.flat() };
 }
 
 export async function embed(text: string) {
@@ -50,10 +56,12 @@ export async function embed(text: string) {
 export async function findSimilar(query: string) {
   const jsonFiles = fetchTokenisedSources();
   let allScores = [];
-  await Promise.all(jsonFiles.map(async (fileName) => {
-    const scores = await getSimilarityScores(query, fileName);
-    allScores = [...allScores, ...scores];
-  }));
+  await Promise.all(
+    jsonFiles.map(async (fileName) => {
+      const scores = await getSimilarityScores(query, fileName);
+      allScores = [...allScores, ...scores];
+    })
+  );
   return allScores.sort((a, b) => b.score - a.score).slice(0, 5);
 }
 
