@@ -1,10 +1,17 @@
 <script>
   import Upload from "./ui-components/Upload.svelte";
-
+  // we need to cut posteriors otherwise it will be hard
   let query = "";
   let response;
   async function handleQuery() {
-    window.svelteEvents.getSimilarSentences(query);
+    const res = await fetch("https://nlp-backend-1.onrender.com/tokenise-sentence?q=" + query, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    const data = await res.json()
+    window.svelteEvents.getSimilarSentences(data.result);
     window.svelteEvents.similarSearch((d) => (response = d));
   }
 </script>

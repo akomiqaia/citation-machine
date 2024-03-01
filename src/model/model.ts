@@ -1,57 +1,7 @@
-import type { Pipeline } from "@xenova/transformers";
-import type { BrowserWindow } from "electron";
 import { app } from "electron";
-import winkNLP from "wink-nlp";
-import winkNLPModel from "wink-eng-lite-web-model";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-const nlp = winkNLP(winkNLPModel);
-const task = "feature-extraction";
-const model = "Xenova/all-MiniLM-L6-v2";
-
-let embedder: Pipeline;
-
-type EmbeddingProgressData = {
-  status: string;
-  name: string;
-  file: string;
-  progress: number;
-  loaded: number;
-  total: number;
-};
-
-export async function initialiseEmbedder(mainwindow: BrowserWindow) {
-  const { pipeline } = await import("@xenova/transformers");
-  embedder = await pipeline(task, model, {
-    progress_callback: (data: EmbeddingProgressData) => {
-      // model loading progress
-      // mainwindow.webContents.send("progress", data);
-    },
-  });
-}
-
-export async function tokeniseWholeText(text: string) {
-  const doc = nlp.readDoc(text);
-  const sentences = await doc.sentences().out();
-
-
-  const tokenisedSentences = await Promise.all(
-    sentences.map(async (sentence) => {
-      const tokens = await embedder(sentence, {
-        pooling: "mean",
-        normalize: true,
-      });
-      return tokens.tolist();
-    })
-  );
-
-  return { sentences, tokens: tokenisedSentences.flat() };
-}
-
-export async function embed(text: string) {
-  const e0 = await embedder(text, { pooling: "mean", normalize: true });
-  return e0.tolist();
-}
+import Similarity from "compute-cosine-similarity";
 
 export async function findSimilar(query: string) {
   const jsonFiles = fetchTokenisedSources();
@@ -77,25 +27,18 @@ function fetchTokenisedSources() {
   return jsonFiles;
 }
 
-async function getSimilarityScores(query: string, fileName: string) {
-  const { cos_sim } = await import("@xenova/transformers");
+async function getSimilarityScores(tokenisedQuery, fileName: string) {
   const jsonPath = join(app.getAppPath(), "src", "tokenisedSources", fileName);
   const rawText = readFileSync(jsonPath, "utf8");
-  const embeddings = JSON.parse(rawText).tokens;
-  const query_embeddings = await embedder(query, {
-    pooling: "mean",
-    normalize: true,
-  });
-  const texts = JSON.parse(rawText).sentences;
+  const pages = JSON.parse(rawText);
+  const scores = [];
 
-  // Sort by cosine similarity score
-  const scores = embeddings
-    .map((embedding, i) => ({
-      id: i,
-      score: cos_sim(query_embeddings.data, embedding),
-      text: texts[i],
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-  return scores;
+  pages.forEach((page) => {
+    const { page: pageNumber, sentences, vectors } = page;
+    vectors.forEach((vector, i) => {
+      const score = Similarity(tokenisedQuery, vector);
+      scores.push({ pageNumber, score, text: sentences[i] });
+    });
+  });
+  return scores.sort((a, b) => b.score - a.score).slice(0, 5);
 }
