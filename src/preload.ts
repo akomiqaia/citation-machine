@@ -5,7 +5,8 @@ import { contextBridge, ipcRenderer } from "electron";
 contextBridge.exposeInMainWorld("svelteEvents", {
   tokenisePDF: () => ipcRenderer.send("tokenisePDF"),
   getSimilarSentences: (query: string) => ipcRenderer.send("getSimilarSentences", query),
-  similarSearch: (cb) => ipcRenderer.on('query-result', (event, data) => cb(data))
+  similarSearch: (cb) => ipcRenderer.on('query-result', (event, data) => cb(data)),
+  saveTokens: (tokens) => ipcRenderer.send("saveTokens", tokens)
 });
 
 ipcRenderer.on("console", (event, data) => {

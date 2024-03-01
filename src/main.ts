@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from "path";
 
-import { initialiseEmbedder, findSimilar } from "./model/model";
-import { pdfContentToVector } from "./utils/pdfhelpers";
-import { updateElectronApp } from 'update-electron-app';
+import {  findSimilar  } from "./model/model";
+import {  writeTokensToJson } from "./utils/pdfhelpers";
+import { updateElectronApp } from "update-electron-app";
 
 updateElectronApp();
 
@@ -43,14 +43,16 @@ app.on("ready", async () => {
   // Add a handler for the `transformers:run` event. This enables 2-way communication
   // between the renderer process (UI) and the main process (processing).
   // https://www.electronjs.org/docs/latest/tutorial/ipc#pattern-2-renderer-to-main-two-way
-  ipcMain.on("tokenisePDF", () => tokenisePdfContent(mainWindow));
   ipcMain.on("getSimilarSentences", async (event, query) => {
-    const scores = await findSimilar(query)
+    const scores = await findSimilar(query[0]);
     mainWindow?.webContents.send("query-result", scores);
   });
 
+  ipcMain.on("saveTokens", async (event, tokens) => {
+    await writeTokensToJson(tokens);
+  });
+
   createWindow();
-  await initialiseEmbedder(mainWindow);
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -69,24 +71,3 @@ app.on("activate", () => {
     createWindow();
   }
 });
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
-const getPdfPath = async (BrowserWindow: BrowserWindow) => {
-  const result = await dialog.showOpenDialog({
-    properties: ["openFile"],
-    filters: [
-      {
-        name: "File",
-        extensions: ["pdf"],
-      },
-    ],
-  });
-  BrowserWindow.webContents.send("console", { path: result.filePaths[0] });
-  return result.filePaths[0];
-};
-
-async function tokenisePdfContent(mainWindow: BrowserWindow | null) {
-  const path = await getPdfPath(mainWindow);
-  await pdfContentToVector(path);
-}
