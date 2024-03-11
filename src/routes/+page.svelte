@@ -21,7 +21,7 @@
 			multiple: true
 		});
     let result = '';
-			const fetchSentenceQuery = await fetch(`http://localhost:8135/ping`);
+			const fetchSentenceQuery = await fetch(`http://localhost:8135/tokenise-sentence?q=this is a normal sentence`);
 			result = await fetchSentenceQuery.json();
       error = result.toString();
       response.push({

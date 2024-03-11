@@ -5,44 +5,44 @@ from fastapi.middleware.cors import CORSMiddleware
 # from fastapi.responses import StreamingResponse
 # from PyPDF2 import PdfReader
 # import json
-# from transformers import AutoTokenizer, AutoModel
-# import torch
-# import torch.nn.functional as F
+from transformers import AutoTokenizer, AutoModel
+import torch
+import torch.nn.functional as F
 # import spacy
 import multiprocessing
 import uvicorn
 
 # nlp = spacy.load("en_core_web_sm")
-# # Load model from HuggingFace Hub
-# tokenizer = AutoTokenizer.from_pretrained(
-#     'sentence-transformers/all-MiniLM-L6-v2')
-# model = AutoModel.from_pretrained('sentence-transformers/all-MiniLM-L6-v2')
+# Load model from HuggingFace Hub
+tokenizer = AutoTokenizer.from_pretrained(
+    'sentence-transformers/all-MiniLM-L6-v2')
+model = AutoModel.from_pretrained('sentence-transformers/all-MiniLM-L6-v2')
 
 
-# # Mean Pooling - Take attention mask into account for correct averaging
-# def mean_pooling(model_output, attention_mask):
-#     # First element of model_output contains all token embeddings
-#     token_embeddings = model_output[0]
-#     input_mask_expanded = attention_mask.unsqueeze(
-#         -1).expand(token_embeddings.size()).float()
-#     return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+# Mean Pooling - Take attention mask into account for correct averaging
+def mean_pooling(model_output, attention_mask):
+    # First element of model_output contains all token embeddings
+    token_embeddings = model_output[0]
+    input_mask_expanded = attention_mask.unsqueeze(
+        -1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
 
-# def encoder(sentences):
-#     encoded_input = tokenizer(
-#         sentences, padding=True, truncation=True, return_tensors='pt')
-#     # Compute token embeddings
-#     with torch.no_grad():
-#         model_output = model(**encoded_input)
+def encoder(sentences):
+    encoded_input = tokenizer(
+        sentences, padding=True, truncation=True, return_tensors='pt')
+    # Compute token embeddings
+    with torch.no_grad():
+        model_output = model(**encoded_input)
 
-#     # Perform pooling
-#     sentence_embeddings = mean_pooling(
-#         model_output, encoded_input['attention_mask'])
+    # Perform pooling
+    sentence_embeddings = mean_pooling(
+        model_output, encoded_input['attention_mask'])
 
-#     # Normalize embeddings
-#     sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
+    # Normalize embeddings
+    sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
 
-#     return sentence_embeddings
+    return sentence_embeddings
 
 
 app = FastAPI()
@@ -60,10 +60,10 @@ app.add_middleware(
 )
 
 
-# @app.get("/tokenise-sentence")
-# def tokeniseSentence(q: str):
-#     sentence_embeddings = encoder([q])
-#     return {"result": sentence_embeddings.tolist()}
+@app.get("/tokenise-sentence")
+def tokeniseSentence(q: str):
+    sentence_embeddings = encoder([q])
+    return {"result": sentence_embeddings.tolist()}
 
 
 # async def iterFile(file):
