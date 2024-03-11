@@ -48,8 +48,7 @@ import uvicorn
 app = FastAPI()
 
 origins = [
-    "http://localhost",
-    "http://localhost:5173",
+    "*"
 ]
 
 app.add_middleware(
@@ -104,7 +103,7 @@ app.add_middleware(
 
 @app.get("/ping")
 def splitSentences():
-    return {"result": "pog"}
+    return {"result": "pong"}
 
 
 if __name__ == '__main__':

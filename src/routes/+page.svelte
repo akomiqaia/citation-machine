@@ -1,6 +1,6 @@
 <script lang="ts">
 	// import { invoke } from '@tauri-apps/api/tauri';
-
+	import { appWindow } from '@tauri-apps/api/window'
 	import { open } from '@tauri-apps/api/dialog';
 	// import { Command } from '@tauri-apps/api/shell';
 	// alternatively, use `window.__TAURI__.shell.Command`
@@ -9,23 +9,29 @@
 	let query = 'default query';
 	let response: { score: String; text: string }[] = [];
 	async function handleQuery() {}
+  let textDetails = ''
+	let error = 'no error';
+	appWindow.listen('message', (message) => {
+		textDetails = textDetails + JSON.stringify(message);
+	});
   
-  let error = 'no error';
 	async function handleUpload() {
-    const files = await open({
-      multiple: true
+    try {
+		const files = await open({
+			multiple: true
 		});
-
-		const fetchSentenceQuery = await fetch(
-			`http://localhost:8135/ping?q=${query}`
-		);
-		const result = await fetchSentenceQuery.json();
-    error = result
-    response.push({
-      score: '54',
-      text: result.result
-    });
-    response = [...response];
+    let result = '';
+			const fetchSentenceQuery = await fetch(`http://localhost:8135/ping`);
+			result = await fetchSentenceQuery.json();
+      error = result.toString();
+      response.push({
+        score: '54',
+        text: result.result
+      });
+      response = [...response];
+    } catch (e) {
+      textDetails =  textDetails + JSON.stringify(e);
+    }
 	}
 </script>
 
@@ -49,6 +55,8 @@
 		{/each}
 	</div>
 {/if}
+
+{textDetails}
 
 <style>
 	.wrapper {

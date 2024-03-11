@@ -6,6 +6,56 @@ on:
   workflow_dispatch:
 
 jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build changelog
+        id: build_changelog
+        run: |
+          # NOTE: if commits subjects are standardized, you can filter the git log based on feat: and fix:
+          # and then replace "feat:" with "New: " and "fix:" with "Fixed "
+          # when AI gets good, we can also summarized commits into a bullet point list
+          PREV_TAG=$(git tag --list v* | tail -n2 | head -n1)
+          echo "changelog=$(git log $PREV_TAG...${{ github.ref_name }} --pretty=format:"- %s")" >> $GITHUB_OUTPUT
+    outputs:
+      changelog: ${{ steps.build_changelog.outputs.changelog }}
+  build-arm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup ARM build environment
+        run: |
+          rustup target add aarch64-unknown-linux-gnu
+          sudo apt install gcc-aarch64-linux-gnu
+          sudo dpkg --add-architecture arm64
+          . /etc/os-release
+          echo "using Ubuntu with codename $VERSION_CODENAME"
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME main restricted" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-updates main restricted" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME universe" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-updates universe" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-updates multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-security main restricted" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-security universe" | sudo tee -a /etc/apt/sources.list
+          echo "deb [arch=armhf,arm64] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-security multiverse" | sudo tee -a /etc/apt/sources.list
+          sudo apt update
+          sudo apt upgrade -y
+          sudo apt install libwebkit2gtk-4.0-dev:arm64 -y
+          sudo apt install libssl-dev:arm64 -y
+          export PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu/
+          yarn
+          yarn rls --target aarch64-unknown-linux-gnu
+      - name: Upload deb bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARM Debian File
+          path: src-tauri/target/release/bundle/deb/*arm64.deb
   release:
     permissions:
       contents: write
@@ -14,11 +64,17 @@ jobs:
       matrix:
         platform: [macos-latest, ubuntu-20.04, windows-latest]
     runs-on: ${{ matrix.platform }}
-
+    needs: [changelog]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: setup python  
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: setup python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
@@ -29,10 +85,10 @@ jobs:
         # Install libayatana-appindicator3-dev if you use the system tray feature.
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev librsvg2-dev
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Rust setup
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup update --no-self-update
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -48,10 +104,16 @@ jobs:
       - name: Install frontend dependencies
         # If you don't have `beforeBuildCommand` configured you may want to build your frontend here too.
         run: npm install # Change this to npm, yarn or pnpm.
-      - name: build python backend
+      - name: build python backend for ubuntu and macos
+        if: matrix.platform == 'ubuntu-20.04' || matrix.platform == 'macos-latest'
         run: |
           pip install -r requirements.txt
-          npm run build:fastapi
+          pyinstaller -c -F --clean --name api-$(rustc -Vv | grep host | cut -f2 -d' ') --distpath src-tauri/bin src-backend/server.py
+      - name: build python backend for windows
+        if: matrix.platform == 'windows-latest'
+        run: |
+          pip install -r requirements.txt
+          pyinstaller -c -F --clean --name api-$(rustc -Vv | Select-String "host:" | ForEach-Object {$_.Line.split(" ")[1]}) --distpath src-tauri\bin src-backend\server.py
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0

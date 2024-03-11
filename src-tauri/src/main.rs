@@ -36,12 +36,12 @@ fn main() {
             }
             _ => {}
         })
-        .invoke_handler(tauri::generate_handler![embedSentences])
+        .invoke_handler(tauri::generate_handler![embed_sentences])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 #[tauri::command]
-fn embedSentences(sentences: &str) -> &str {
+fn embed_sentences(sentences: &str) -> &str {
     return sentences;
 }
