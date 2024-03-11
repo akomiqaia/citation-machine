@@ -17,7 +17,7 @@
 		});
 
 		const fetchSentenceQuery = await fetch(
-			`http://localhost:8135/tokenise-sentence?q=${query}`
+			`http://localhost:8135/ping?q=${query}`
 		);
 		const result = await fetchSentenceQuery.json();
     error = result
