@@ -1,18 +1,22 @@
 
 # from io import BytesIO
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# from fastapi.responses import StreamingResponse
-# from PyPDF2 import PdfReader
-# import json
+from fastapi.responses import StreamingResponse, ORJSONResponse, FileResponse, Response
+from PyPDF2 import PdfReader
+import json
 from transformers import AutoTokenizer, AutoModel
 import torch
 import torch.nn.functional as F
-# import spacy
+import spacy
 import multiprocessing
 import uvicorn
+import pickle
+# import orjson
 
-# nlp = spacy.load("en_core_web_sm")
+spacy.prefer_gpu()
+nlp = spacy.load("en_core_web_sm")
 # Load model from HuggingFace Hub
 tokenizer = AutoTokenizer.from_pretrained(
     'sentence-transformers/all-MiniLM-L6-v2')
@@ -44,6 +48,35 @@ def encoder(sentences):
 
     return sentence_embeddings
 
+async def iterFile(pdf_path: str, data_dir: str, name: str):
+    reader = PdfReader(pdf_path)
+    number_of_pages = len(reader.pages)
+    details = []
+    yield json.dumps({"status": "starting", "number_of_pages": number_of_pages})
+    for i, page in enumerate(reader.pages):
+        page_content = page.extract_text()
+        last_line = page_content.splitlines()[-1]
+        page_number = -1
+        # if last new line is a number then remove it and use it as page number
+        if last_line.isdigit():
+            page_number = int(last_line)
+        doc = nlp(page_content)
+        sentences = list(doc.sents)
+        sentence_array = [str(sentence) for sentence in sentences]
+
+        sentence_vectors = encoder(sentence_array)
+        details.append({"page": page_number, "sentences": sentence_array,
+                       "vectors": sentence_vectors})
+        yield json.dumps({"status": "progress", "current_page": i+1})
+    if not os.path.exists(f"{data_dir}/pickle_files"):
+        os.makedirs(f"{data_dir}/pickle_files")
+        
+    path_to_save = f"{data_dir}/pickle_files/{name}.pickle"
+    with open(path_to_save, 'wb') as f:
+        pickle.dump(details, f)
+
+    yield json.dumps({"status": "done" })
+
 
 app = FastAPI()
 
@@ -65,41 +98,26 @@ def tokeniseSentence(q: str):
     sentence_embeddings = encoder([q])
     return {"result": sentence_embeddings.tolist()}
 
+@app.get("/tokenise-text", response_class=ORJSONResponse)
+async def tokenise_text(pdf_path: str, data_dir: str, name: str):
+    return StreamingResponse(iterFile(pdf_path, data_dir, name))
 
-# async def iterFile(file):
-#     text = await file.read()
-#     file_like_object = BytesIO(text)
-#     reader = PdfReader(file_like_object)
-#     # details = []
-#     print(reader.pages)
-#     for page in reader.pages:
-#         page_content = page.extract_text()
-#         last_line = page_content.splitlines()[-1]
-#         page_number = -1
-#         # if last new line is a number then remove it and use it as page number
-#         if last_line.isdigit():
-#             page_number = int(last_line)
-#         doc = nlp(page_content)
-#         sentences = list(doc.sents)
-#         sentences = [str(sentence) for sentence in sentences]
-
-#         sentence_vectors = encoder(sentences)
-#         # details.append({"page": page_number, "text": sentences, "vectors": sentence_vectors.tolist()})
-#         yield str(json.dumps({"page": page_number}))
-
-
-# @app.post("/tokenise-text")
-# async def tokenise_text(file: UploadFile):
-#     # for each page return number of the page and the text
-#     return StreamingResponse(iterFile(file))
-# @app.get("/tokenise-text")
-# def tokenise_text(q: str):
-#     doc = nlp(q)
-#     sentences = list(doc.sents)
-#     sentences = [str(sentence) for sentence in sentences]
-
-#     sentence_vectors = encoder(sentences)
-#     return {"result": sentence_vectors.tolist()}
+@app.get("/find-similar-sentences")
+def findSimilarSentences(q: str, data_dir: str):
+    pickle_files = os.listdir(f"{data_dir}/pickle_files")
+    similar_sentences = []
+    encoded_query = encoder([q])
+    for file in pickle_files:
+        with open(f"{data_dir}/pickle_files/{file}", 'rb') as f:
+            data = pickle.load(f)
+            for page in data:
+                for i, vector in enumerate(page['vectors']):
+                    similarity = F.cosine_similarity(
+                        encoded_query, torch.tensor(vector).unsqueeze(0)).item()
+                    if similarity > 0.5:
+                        similar_sentences.append(
+                            {"page": page['page'], "sentence": page['sentences'][i], "similarity": round(similarity, 2)})     
+    return {"similar_sentences": sorted(similar_sentences, key=lambda x: x['similarity'], reverse=True)[:5]}
 
 @app.get("/ping")
 def splitSentences():

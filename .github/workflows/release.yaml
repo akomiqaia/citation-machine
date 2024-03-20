@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-20.04, windows-latest]
+        platform:  [windows-latest]
     runs-on: ${{ matrix.platform }}
     needs: [changelog]
     steps:
@@ -75,12 +75,14 @@ jobs:
         if: matrix.platform == 'ubuntu-20.04' || matrix.platform == 'macos-latest'
         run: |
           pip install -r requirements.txt
-          pyinstaller -c -F --clean --name api-$(rustc -Vv | grep host | cut -f2 -d' ') --distpath src-tauri/bin src-backend/server.py
+          pyinstaller --collect-all en_core_web_sm -F --clean --name api-$(rustc -Vv | grep host | cut -f2 -d' ') --distpath src-tauri/bin src-backend/server.py
       - name: build python backend for windows
         if: matrix.platform == 'windows-latest'
         run: |
+          python -m venv .venv
+          .venv\Scripts\activate
           pip install -r requirements.txt
-          pyinstaller -c -F --clean --name api-$(rustc -Vv | Select-String "host:" | ForEach-Object {$_.Line.split(" ")[1]}) --distpath src-tauri\bin src-backend\server.py
+          pyinstaller --collect-all en_core_web_sm -c -F --clean --name api-$(rustc -Vv | Select-String "host:" | ForEach-Object {$_.Line.split(" ")[1]}) --distpath src-tauri\bin src-backend\server.py
 
       - name: Build the app
         uses: tauri-apps/tauri-action@v0

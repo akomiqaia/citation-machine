@@ -1,12 +1,15 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use command_group::CommandGroup;
 use std::process::Command;
 use std::sync::mpsc::{sync_channel, Receiver};
 use std::thread;
-use command_group::CommandGroup;
+// use tauri::api::path::resource_dir;
 use tauri::api::process::Command as TCommand;
 use tauri::WindowEvent;
+// use pdf_extract::print_metadata;
+// use pdf_extract::extract_text;
 
 fn start_backend(receiver: Receiver<i32>) {
     // `new_sidecar()` expects just the filename, NOT the whole path
@@ -36,12 +39,22 @@ fn main() {
             }
             _ => {}
         })
-        .invoke_handler(tauri::generate_handler![embed_sentences])
+        .invoke_handler(tauri::generate_handler![read_pickle_files])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
 #[tauri::command]
-fn embed_sentences(sentences: &str) -> &str {
-    return sentences;
+fn read_pickle_files(pdf_path: &str, handle: tauri::AppHandle) -> &str {
+    // get resource dir
+    let resource_path = handle
+        .path_resolver()
+        .resource_dir()
+        .expect("Failed to resolve resource path");
+    println!("Resource path: {:?}", resource_path);
+    let file = std::fs::File::open(&resource_path).unwrap();
+    let lang_de: serde_json::Value = serde_json::from_reader(file).unwrap();
+    println!("Extracting PDF: {:?}", lang_de);
+
+    return pdf_path;
 }

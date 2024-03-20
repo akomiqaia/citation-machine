@@ -20,9 +20,18 @@
 				"sidecar": true,
 				"scope": [{ "name": "bin/api", "sidecar": true }]
 			},
-			"window": {
-				"all": true
-			}
+			"http": {
+				"all": false,
+        "request": true,
+        "scope": ["http://localhost:8135/*"]
+			},
+      "path": {
+        "all": true
+      },
+      "fs": {
+        "readFile": true,
+        "scope": ["$RESOURCE/pickle_files/*"]
+      }
 		},
 		"bundle": {
 			"active": true,
