@@ -14,8 +14,8 @@ import multiprocessing
 import uvicorn
 import pickle
 # import orjson
-
-spacy.prefer_gpu()
+# look into https://pypi.org/project/semantic-text-splitter/ instead of spacy
+# spacy.prefer_gpu()
 nlp = spacy.load("en_core_web_sm")
 # Load model from HuggingFace Hub
 tokenizer = AutoTokenizer.from_pretrained(
