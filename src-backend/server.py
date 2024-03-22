@@ -68,10 +68,14 @@ async def iterFile(pdf_path: str, data_dir: str, name: str):
         details.append({"page": page_number, "sentences": sentence_array,
                        "vectors": sentence_vectors})
         yield json.dumps({"status": "progress", "current_page": i+1})
-    if not os.path.exists(f"{data_dir}/pickle_files"):
-        os.makedirs(f"{data_dir}/pickle_files")
-        
-    path_to_save = f"{data_dir}/pickle_files/{name}.pickle"
+    
+    pickle_files_path = os.path.join(data_dir, "pickle_files")
+    if not os.path.exists(pickle_files_path):
+        os.makedirs(pickle_files_path)
+    
+    pickle_file_name = f"{name}.pickle"
+    path_to_save = os.path.join(pickle_files_path, pickle_file_name)
+
     with open(path_to_save, 'wb') as f:
         pickle.dump(details, f)
 
@@ -104,11 +108,13 @@ async def tokenise_text(pdf_path: str, data_dir: str, name: str):
 
 @app.get("/find-similar-sentences")
 def findSimilarSentences(q: str, data_dir: str):
-    pickle_files = os.listdir(f"{data_dir}/pickle_files")
+    pickle_files_dir = os.path.join(data_dir, "pickle_files")
+    pickle_files = os.listdir(pickle_files_dir)
     similar_sentences = []
     encoded_query = encoder([q])
     for file in pickle_files:
-        with open(f"{data_dir}/pickle_files/{file}", 'rb') as f:
+        pickle_file_path = os.path.join(pickle_files_dir, file)
+        with open(pickle_file_path, 'rb') as f:
             data = pickle.load(f)
             for page in data:
                 for i, vector in enumerate(page['vectors']):
