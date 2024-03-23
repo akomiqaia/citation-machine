@@ -31,7 +31,7 @@
       "fs": {
         "readFile": true,
         "writeFile": true,
-        "scope": ["$RESOURCE/pickle_files/*"]
+        "scope": ["$APPLOCALDATA/pickle_files/*"]
       }
 		},
 		"bundle": {
