@@ -75,8 +75,30 @@
 	for (let i = 0; i < 20; i++) {
 		treeItems.push({ title: `index.svelte ${i}`, icon: 'file' });
 	}
+
+  let message = "empty message"
+
+  async function handleTestRequests() {
+    const streamTestRes = await fetch(
+      `http://localhost:8135/test-streaming-video`
+    );
+    const stream = await streamTestRes.body;
+    const reader = stream?.getReader();
+    const text = new TextDecoder('utf-8');
+    while (true) {
+      const { done, value } = (await reader?.read()) as ReadableStreamReadResult<Uint8Array>;
+      if (done) {
+        break;
+      }
+      const streamResponse = JSON.parse(text.decode(value));
+      console.log(`🚀 ~ streamResponse:`, streamResponse);
+      message = streamResponse.current_page;
+    }
+    
+  }
 </script>
 
+{message}
 <div class="flex h-[90vh]">
 	<div class="ml-[10px] flex flex-col justify-between">
 		<Tree {treeItems} />
@@ -112,6 +134,7 @@
 				</div>
 			{:else}
 				<h2>Results will be shown here:</h2>
+        <button on:click={handleTestRequests}>Test requests</button>
 			{/if}
 		</div>
 		<div>

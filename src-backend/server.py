@@ -5,48 +5,48 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, ORJSONResponse, FileResponse, Response
 from PyPDF2 import PdfReader
-# import json
+import json
 from transformers import AutoTokenizer, AutoModel
-# import torch
+import torch
 import torch.nn.functional as F
-# import spacy
+import spacy
 import multiprocessing
 import uvicorn
 import pickle
 # import orjson
 # look into https://pypi.org/project/semantic-text-splitter/ instead of spacy
 # spacy.prefer_gpu()
-# nlp = spacy.load("en_core_web_sm")
-# # Load model from HuggingFace Hub
-# tokenizer = AutoTokenizer.from_pretrained(
-#     'sentence-transformers/all-MiniLM-L6-v2')
-# model = AutoModel.from_pretrained('sentence-transformers/all-MiniLM-L6-v2')
+nlp = spacy.load("en_core_web_sm")
+# Load model from HuggingFace Hub
+tokenizer = AutoTokenizer.from_pretrained(
+    'sentence-transformers/all-MiniLM-L6-v2')
+model = AutoModel.from_pretrained('sentence-transformers/all-MiniLM-L6-v2')
 
 
-# # Mean Pooling - Take attention mask into account for correct averaging
-# def mean_pooling(model_output, attention_mask):
-#     # First element of model_output contains all token embeddings
-#     token_embeddings = model_output[0]
-#     input_mask_expanded = attention_mask.unsqueeze(
-#         -1).expand(token_embeddings.size()).float()
-#     return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+# Mean Pooling - Take attention mask into account for correct averaging
+def mean_pooling(model_output, attention_mask):
+    # First element of model_output contains all token embeddings
+    token_embeddings = model_output[0]
+    input_mask_expanded = attention_mask.unsqueeze(
+        -1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
 
-# def encoder(sentences):
-#     encoded_input = tokenizer(
-#         sentences, padding=True, truncation=True, return_tensors='pt')
-#     # Compute token embeddings
-#     with torch.no_grad():
-#         model_output = model(**encoded_input)
+def encoder(sentences):
+    encoded_input = tokenizer(
+        sentences, padding=True, truncation=True, return_tensors='pt')
+    # Compute token embeddings
+    with torch.no_grad():
+        model_output = model(**encoded_input)
 
-#     # Perform pooling
-#     sentence_embeddings = mean_pooling(
-#         model_output, encoded_input['attention_mask'])
+    # Perform pooling
+    sentence_embeddings = mean_pooling(
+        model_output, encoded_input['attention_mask'])
 
-#     # Normalize embeddings
-#     sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
+    # Normalize embeddings
+    sentence_embeddings = F.normalize(sentence_embeddings, p=2, dim=1)
 
-#     return sentence_embeddings
+    return sentence_embeddings
 
 
 # async def iterFile(pdf_path: str, data_dir: str, name: str):
@@ -164,6 +164,34 @@ def testPklFile(data_dir: str):
 
 
     return {"result": "success"}
+
+
+async def fake_video_streamer():
+    for i in range(10):
+        # yield a fake video file byte by byte with index i in it
+        json.dumps({"status": "progress", "current_page": i+1})
+
+
+@app.get("/test-streaming-video", response_class=ORJSONResponse)
+async def main():
+    return StreamingResponse(fake_video_streamer())
+
+@app.get("/test-read-pdf-file")
+async def readPdfFile(pdf_path: str):
+    reader = PdfReader(pdf_path)
+    number_of_pages = len(reader.pages)
+    details = []
+    for i, page in enumerate(reader.pages):
+        page_content = page.extract_text()
+        last_line = page_content.splitlines()[-1]
+        page_number = -1
+        # if last new line is a number then remove it and use it as page number
+        if last_line.isdigit():
+            page_number = int(last_line)
+      
+        details.append({"page": page_number})
+    return {"result": details, "number_of_pages": number_of_pages}
+
 
 @app.get("/ping")
 def splitSentences():
