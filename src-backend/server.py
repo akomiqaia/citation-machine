@@ -48,6 +48,7 @@ def encoder(sentences):
 
     return sentence_embeddings
 
+
 async def iterFile(pdf_path: str, data_dir: str, name: str):
     reader = PdfReader(pdf_path)
     number_of_pages = len(reader.pages)
@@ -68,18 +69,18 @@ async def iterFile(pdf_path: str, data_dir: str, name: str):
         details.append({"page": page_number, "sentences": sentence_array,
                        "vectors": sentence_vectors})
         yield json.dumps({"status": "progress", "current_page": i+1})
-    
-    pickle_files_path = os.path.join(data_dir, "pickle_files")
+
+    pickle_files_path = os.path.join("pickle_files")
     if not os.path.exists(pickle_files_path):
         os.makedirs(pickle_files_path)
-    
+
     pickle_file_name = f"{name}.pickle"
     path_to_save = os.path.join(pickle_files_path, pickle_file_name)
 
     with open(path_to_save, 'wb') as f:
         pickle.dump(details, f)
 
-    yield json.dumps({"status": "done" })
+    yield json.dumps({"status": "completed"})
 
 
 app = FastAPI()
@@ -102,13 +103,16 @@ def tokeniseSentence(q: str):
     sentence_embeddings = encoder([q])
     return {"result": sentence_embeddings.tolist()}
 
+
 @app.get("/tokenise-text", response_class=ORJSONResponse)
 async def tokenise_text(pdf_path: str, data_dir: str, name: str):
+    
     return StreamingResponse(iterFile(pdf_path, data_dir, name))
+
 
 @app.get("/find-similar-sentences")
 def findSimilarSentences(q: str, data_dir: str):
-    pickle_files_dir = os.path.join(data_dir, "pickle_files")
+    pickle_files_dir = os.path.join("pickle_files")
     pickle_files = os.listdir(pickle_files_dir)
     similar_sentences = []
     encoded_query = encoder([q])
@@ -122,8 +126,9 @@ def findSimilarSentences(q: str, data_dir: str):
                         encoded_query, torch.tensor(vector).unsqueeze(0)).item()
                     if similarity > 0.5:
                         similar_sentences.append(
-                            {"page": page['page'], "sentence": page['sentences'][i], "similarity": round(similarity, 2)})     
+                            {"page": page['page'], "sentence": page['sentences'][i], "similarity": round(similarity, 2)})
     return {"similar_sentences": sorted(similar_sentences, key=lambda x: x['similarity'], reverse=True)[:5]}
+
 
 @app.get("/ping")
 def splitSentences():
