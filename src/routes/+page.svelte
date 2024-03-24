@@ -90,9 +90,8 @@
       if (done) {
         break;
       }
-      const streamResponse = JSON.parse(text.decode(value));
-      console.log(`🚀 ~ streamResponse:`, streamResponse);
-      message = streamResponse.current_page;
+      console.log(text.decode(value))
+      message = text.decode(value);
     }
     
   }
