@@ -6,6 +6,7 @@
 	import Tree from '$lib/tree/Index.svelte';
 	import Separator from '$lib/separator/Separator.svelte';
 	import Progress from '$lib/progress/Progress.svelte';
+  let message = "empty message"
 
 	type responseDetails = { page: number; sentence: string; similarity: number };
 	let query =
@@ -56,9 +57,12 @@
 						if (status === 'starting') {
 							console.log(`🚀 ~ result:`, JSON.parse(text.decode(value)));
 							totalPages = streamResponse.number_of_pages;
+              message = streamResponse.number_of_pages
+
 						} else if (status === 'progress') {
 							console.log(`🚀 ~ result:`, JSON.parse(text.decode(value)));
 							currentPage = streamResponse.current_page;
+              message = streamResponse.current_page
 						}
 					}
 				})
@@ -76,7 +80,6 @@
 		treeItems.push({ title: `index.svelte ${i}`, icon: 'file' });
 	}
 
-  let message = "empty message"
 
   async function handleTestRequests() {
     const streamTestRes = await fetch(

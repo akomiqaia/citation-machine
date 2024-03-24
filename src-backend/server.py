@@ -53,9 +53,11 @@ async def iterFile(pdf_path: str, data_dir: str, name: str):
     reader = PdfReader(pdf_path)
     number_of_pages = len(reader.pages)
     details = []
+    print(json.dumps({"status": "starting", "number_of_pages": number_of_pages}))
     yield json.dumps({"status": "starting", "number_of_pages": number_of_pages})
     for i, page in enumerate(reader.pages):
         page_content = page.extract_text()
+        print("page_content", page_content)
         last_line = page_content.splitlines()[-1]
         page_number = -1
         # if last new line is a number then remove it and use it as page number
@@ -69,16 +71,18 @@ async def iterFile(pdf_path: str, data_dir: str, name: str):
         details.append({"page": page_number, "sentences": sentence_array,
                        "vectors": sentence_vectors})
         yield json.dumps({"status": "progress", "current_page": i+1})
-
-    pickle_files_path = os.path.join("pickle_files")
+    print("DATA DIR", data_dir)
+    pickle_files_path = os.path.join(data_dir, "pickle_files")
     if not os.path.exists(pickle_files_path):
         os.makedirs(pickle_files_path)
-
+    print("directory created")
     pickle_file_name = f"{name}.pickle"
     path_to_save = os.path.join(pickle_files_path, pickle_file_name)
-
+    print("path to save", path_to_save)
     with open(path_to_save, 'wb') as f:
         pickle.dump(details, f)
+
+    print("file saved")
 
     yield json.dumps({"status": "completed"})
 
