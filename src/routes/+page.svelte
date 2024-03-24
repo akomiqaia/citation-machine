@@ -39,6 +39,7 @@
 		files &&
 			(await Promise.all(
 				files.map(async (filePath) => {
+          message = "started"
 					const fileName = filePath.split('/').pop();
 					const streamRes = await fetch(
 						`http://localhost:8135/tokenise-text?pdf_path=${filePath}&data_dir=${dataDirPath}&name=${fileName}`

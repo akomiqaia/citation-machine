@@ -73,10 +73,12 @@ async def iterFile(pdf_path: str, data_dir: str, name: str):
         yield json.dumps({"status": "progress", "current_page": i+1})
     print("DATA DIR", data_dir)
     pickle_files_path = os.path.join(data_dir, "pickle_files")
+    print("pickle folder", pickle_files_path)
     if not os.path.exists(pickle_files_path):
         os.makedirs(pickle_files_path)
     print("directory created")
     pickle_file_name = f"{name}.pickle"
+    print('pickle_dir', pickle_files_path, pickle_file_name)
     path_to_save = os.path.join(pickle_files_path, pickle_file_name)
     print("path to save", path_to_save)
     with open(path_to_save, 'wb') as f:
@@ -116,20 +118,21 @@ async def tokenise_text(pdf_path: str, data_dir: str, name: str):
 
 @app.get("/find-similar-sentences")
 def findSimilarSentences(q: str, data_dir: str):
-    pickle_files_dir = os.path.join("pickle_files")
+    pickle_files_dir = os.path.join(data_dir, "pickle_files")
     pickle_files = os.listdir(pickle_files_dir)
+    print(pickle_files)
     similar_sentences = []
     encoded_query = encoder([q])
     for file in pickle_files:
         pickle_file_path = os.path.join(pickle_files_dir, file)
+        print(pickle_file_path)
         with open(pickle_file_path, 'rb') as f:
             data = pickle.load(f)
             for page in data:
                 for i, vector in enumerate(page['vectors']):
                     similarity = F.cosine_similarity(
                         encoded_query, torch.tensor(vector).unsqueeze(0)).item()
-                    if similarity > 0.5:
-                        similar_sentences.append(
+                    similar_sentences.append(
                             {"page": page['page'], "sentence": page['sentences'][i], "similarity": round(similarity, 2)})
     return {"similar_sentences": sorted(similar_sentences, key=lambda x: x['similarity'], reverse=True)[:5]}
 
